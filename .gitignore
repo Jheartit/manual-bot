@@ -1,0 +1,18 @@
+# 환경변수 및 비밀키 (절대 커밋하지 않기)
+.env
+backend/.env
+service_account.json
+backend/service_account.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# 에디터
+.vscode/
+.idea/

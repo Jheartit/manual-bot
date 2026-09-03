@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>청약·배서 매뉴얼 어시스턴트</title>
+<style>
+  :root {
+    --paper: #F3EFE6;
+    --panel: #FBF9F4;
+    --ink: #1E2A44;
+    --ink-soft: #435066;
+    --body: #3B372E;
+    --muted: #8A806E;
+    --line: #DDD5C4;
+    --stamp: #A13D2E;
+    --stamp-bg: #F7EAE6;
+    --gold: #A98552;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+    color: var(--body);
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 980px;
+    margin: 24px auto;
+    min-height: 640px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  /* ---- sidebar ---- */
+  .sidebar {
+    border-right: 1px solid var(--line);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .brand-mark {
+    width: 36px; height: 36px;
+    border: 1.5px solid var(--ink);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Noto Serif KR", "Nanum Myeongjo", serif;
+    font-size: 16px;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  .brand-title {
+    font-family: "Noto Serif KR", "Nanum Myeongjo", serif;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .brand-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .filter-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  .company-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 28px;
+  }
+  .company-item {
+    text-align: left;
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    padding: 7px 10px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 0;
+  }
+  .company-item:hover { background: var(--paper); }
+  .company-item.active {
+    border-left: 2px solid var(--stamp);
+    color: var(--ink);
+    background: var(--paper);
+    font-weight: 600;
+  }
+  .sidebar-footer {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ---- main chat ---- */
+  .chat { display: flex; flex-direction: column; min-height: 640px; }
+  .chat-header {
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .chat-header h1 {
+    font-family: "Noto Serif KR", "Nanum Myeongjo", serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 4px;
+  }
+  .chat-header p {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0;
+  }
+  .chat-scroll {
+    flex: 1;
+    padding: 22px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+  }
+
+  .msg-user {
+    align-self: flex-end;
+    max-width: 70%;
+    background: var(--ink);
+    color: #F3EFE6;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    border-radius: 2px;
+  }
+
+  .msg-bot { max-width: 82%; }
+  .msg-bot-text {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--body);
+    white-space: pre-line;
+  }
+  .web-note {
+    font-size: 12px;
+    color: var(--gold);
+    margin-top: 8px;
+    padding-left: 10px;
+    border-left: 2px solid var(--gold);
+  }
+  .sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .stamp {
+    border: 1px solid var(--stamp);
+    color: var(--stamp);
+    background: var(--stamp-bg);
+    font-size: 11.5px;
+    padding: 4px 9px;
+    transform: rotate(-1deg);
+    white-space: nowrap;
+  }
+
+  .typing { display: flex; gap: 4px; padding: 4px 0; }
+  .typing span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted);
+    animation: blink 1.1s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+  .composer {
+    display: flex;
+    gap: 10px;
+    padding: 16px 28px 22px;
+    border-top: 1px solid var(--line);
+  }
+  .composer input {
+    flex: 1;
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--body);
+    outline: none;
+    font-family: inherit;
+  }
+  .composer input:focus { border-color: var(--ink-soft); }
+  .composer button {
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: #F3EFE6;
+    padding: 0 18px;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  .composer button:hover { background: var(--ink-soft); border-color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">保</div>
+      <div>
+        <div class="brand-title">청약·배서<br>매뉴얼</div>
+        <div class="brand-sub">어시스턴트</div>
+      </div>
+    </div>
+    <div class="filter-label">생명사 필터</div>
+    <div class="company-list" id="companyList">
+      <button class="company-item active" data-company="전체">전체</button>
+      <button class="company-item" data-company="삼성생명">삼성생명</button>
+      <button class="company-item" data-company="한화생명">한화생명</button>
+      <button class="company-item" data-company="교보생명">교보생명</button>
+      <button class="company-item" data-company="신한라이프">신한라이프</button>
+      <button class="company-item" data-company="NH농협생명">NH농협생명</button>
+      <button class="company-item" data-company="미래에셋생명">미래에셋생명</button>
+    </div>
+    <div class="sidebar-footer">
+      자료 출처: 사내 구글드라이브<br>
+      최근 동기화: 오늘 06:00
+    </div>
+  </aside>
+
+  <main class="chat">
+    <div class="chat-header">
+      <h1>청약·배서 매뉴얼 어시스턴트</h1>
+      <p id="scopeText">전체 생명사 자료를 기준으로 답변합니다</p>
+    </div>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="msg-user">삼성생명 암보험 청약 시 고지의무 기준이 어떻게 돼?</div>
+      <div class="msg-bot">
+        <div class="msg-bot-text">삼성생명 암보험 청약 매뉴얼에 따르면, 청약 시 다음 3가지를 고지의무 대상으로 명시하고 있습니다.
+
+1. 최근 5년 이내 암 진단 또는 치료 이력
+2. 최근 3개월 이내 정밀검사(조직검사, 영상검사 등) 시행 여부
+3. 직계가족(부모, 형제자매)의 암 병력 3건 이상
+
+고지의무 위반 시 계약 해지 및 보험금 지급 제한 사유가 될 수 있다고 안내하고 있습니다.
+
+최종 확인은 원본 매뉴얼 또는 해당 생명사 담당자를 통해 진행해주세요.</div>
+        <div class="sources">
+          <span class="stamp">삼성생명 · 청약매뉴얼 · 암보험편.pdf</span>
+        </div>
+      </div>
+
+      <div class="msg-user">한화생명은 배서 처리 시 처리기한이 며칠이야?</div>
+      <div class="msg-bot">
+        <div class="msg-bot-text">확보된 자료 내에서는 한화생명의 배서 처리기한이 명시적으로 확인되지 않아 웹 검색으로 보완했습니다.
+
+일반적으로 생명보험 배서(계약내용 변경) 처리는 접수일로부터 영업일 기준 3~5일 이내 완료하는 것이 업계 표준으로 안내되고 있습니다. 다만 정확한 한화생명 자체 기준은 사내 자료에 추가되어야 확답이 가능합니다.
+
+최종 확인은 원본 매뉴얼 또는 해당 생명사 담당자를 통해 진행해주세요.</div>
+        <div class="web-note">자료 내 확인 불가 → 웹 검색으로 보완된 답변입니다</div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <input type="text" id="msgInput" placeholder="궁금한 청약·배서 조건을 입력하세요">
+      <button id="sendBtn">보내기</button>
+    </div>
+  </main>
+</div>
+
+<script>
+  const companyList = document.getElementById('companyList');
+  const scopeText = document.getElementById('scopeText');
+  companyList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.company-item');
+    if (!btn) return;
+    companyList.querySelectorAll('.company-item').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const company = btn.dataset.company;
+    scopeText.textContent = company === '전체'
+      ? '전체 생명사 자료를 기준으로 답변합니다'
+      : company + ' 자료를 기준으로 답변합니다';
+    currentCompanyFilter = company === '전체' ? null : company;
+  });
+
+  const chatScroll = document.getElementById('chatScroll');
+  const input = document.getElementById('msgInput');
+  const sendBtn = document.getElementById('sendBtn');
+
+  // 백엔드 API 주소. rag_query.py를 로컬에서 uvicorn으로 띄웠다면 기본값 그대로 두면 됨.
+  // 배포 후에는 실제 서버 주소로 바꿔야 함 (예: https://manual-bot.yourcompany.com)
+  const API_BASE_URL = 'http://localhost:8000';
+
+  let currentCompanyFilter = null; // '전체'면 null, 특정 생명사면 해당 이름
+
+  function addUserMessage(text) {
+    const div = document.createElement('div');
+    div.className = 'msg-user';
+    div.textContent = text;
+    chatScroll.appendChild(div);
+  }
+
+  function addTyping() {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-bot';
+    wrap.id = 'typingIndicator';
+    wrap.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+    chatScroll.appendChild(wrap);
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  function addBotMessage(reply) {
+    const typing = document.getElementById('typingIndicator');
+    if (typing) typing.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-bot';
+
+    const textDiv = document.createElement('div');
+    textDiv.className = 'msg-bot-text';
+    textDiv.textContent = reply.text;
+    wrap.appendChild(textDiv);
+
+    if (reply.webNote) {
+      const note = document.createElement('div');
+      note.className = 'web-note';
+      note.textContent = '자료 내 확인 불가 → 웹 검색으로 보완된 답변입니다';
+      wrap.appendChild(note);
+    }
+
+    if (reply.sources.length) {
+      const srcWrap = document.createElement('div');
+      srcWrap.className = 'sources';
+      reply.sources.forEach(s => {
+        const tag = document.createElement('span');
+        tag.className = 'stamp';
+        tag.textContent = s.label;
+        srcWrap.appendChild(tag);
+      });
+      wrap.appendChild(srcWrap);
+    }
+
+    chatScroll.appendChild(wrap);
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  function addErrorMessage(message) {
+    const typing = document.getElementById('typingIndicator');
+    if (typing) typing.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-bot';
+    wrap.innerHTML = '<div class="msg-bot-text" style="color:#A13D2E;">' + message + '</div>';
+    chatScroll.appendChild(wrap);
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  async function handleSend() {
+    const text = input.value.trim();
+    if (!text) return;
+    addUserMessage(text);
+    input.value = '';
+    sendBtn.disabled = true;
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+    addTyping();
+
+    try {
+      const res = await fetch(API_BASE_URL + '/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: text,
+          company_filter: currentCompanyFilter,
+          top_k: 8
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('서버 응답 오류 (status ' + res.status + ')');
+      }
+
+      const data = await res.json();
+      // rag_query.py 응답 형식: { answer: string, sources: [{company, doc_type, file_name}, ...] }
+      const webNote = data.answer.includes('웹 검색으로 보완');
+      addBotMessage({
+        text: data.answer,
+        sources: (data.sources || []).map(s =>
+          ({ label: s.company + ' · ' + s.doc_type + '매뉴얼 · ' + s.file_name })
+        ),
+        webNote: webNote
+      });
+    } catch (err) {
+      addErrorMessage(
+        '백엔드에 연결할 수 없습니다 (' + err.message + '). ' +
+        'rag_query.py 서버가 실행 중인지, API_BASE_URL 설정이 맞는지 확인해주세요.'
+      );
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  sendBtn.addEventListener('click', handleSend);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleSend();
+  });
+</script>
+
+</body>
+</html>
