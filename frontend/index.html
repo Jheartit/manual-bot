@@ -471,7 +471,9 @@
 
   sendBtn.addEventListener('click', handleSend);
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleSend();
+    // 한글 등 IME로 조합 중일 때 Enter를 누르면 조합 완료와 Enter 입력이 겹쳐
+    // 마지막 글자가 별도 메시지로 잘려 전송되는 문제가 있어, 조합 중에는 무시한다.
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) handleSend();
   });
 </script>
 
