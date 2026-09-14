@@ -44,7 +44,7 @@ SYSTEM_PROMPT = """당신은 생명보험사 청약/배서 매뉴얼을 참고�
 class QueryRequest(BaseModel):
     question: str
     company_filter: str | None = None  # 특정 생명사로 필터링 (선택)
-    top_k: int = 8
+    top_k: int = 15
 
 
 MAX_CHUNKS_PER_FILE = 2  # 청크 수가 아주 많은 파일 하나가 검색 결과를 독점하지 못하게 제한
@@ -159,10 +159,25 @@ def _looks_like_file_request(question: str) -> bool:
     return any(kw in question for kw in FILE_REQUEST_KEYWORDS)
 
 
+def _detect_company_in_question(conn, question: str) -> str | None:
+    """사이드바에서 '전체'를 선택한 채로도, 질문에 특정 생명사 이름이 명시돼 있으면
+    그 회사로 좁혀서 검색한다. top_k(8)는 고정인데 '전체' 검색은 후보가 1만 건대라
+    같은 회사의 다른 문서 여러 개가 상위권을 채워버려서, 실제로 꽤 가까운(예: 17위)
+    문서가 다양성 필터에 밀려 아예 안 나오는 경우가 있었다. 질문에 회사명이 정확히
+    하나만 등장하면 그 회사로 필터링해 후보 풀 자체를 좁힌다 (두 회사 이상 언급되면
+    비교 질문일 수 있으니 필터링하지 않음)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT company FROM manual_chunks")
+        companies = [r[0] for r in cur.fetchall()]
+    matched = [c for c in companies if c in question]
+    return matched[0] if len(matched) == 1 else None
+
+
 @app.post("/query")
 def query(req: QueryRequest):
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    rows = search_chunks(conn, req.question, req.company_filter, req.top_k)
+    effective_filter = req.company_filter or _detect_company_in_question(conn, req.question)
+    rows = search_chunks(conn, req.question, effective_filter, req.top_k)
     conn.close()
 
     context = build_context(rows)
