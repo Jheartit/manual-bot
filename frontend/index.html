@@ -20,6 +20,7 @@
     --danger: #DC2626;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
     background: var(--bg);
@@ -32,8 +33,9 @@
     display: grid;
     grid-template-columns: 240px 1fr;
     max-width: 980px;
+    height: calc(100vh - 48px);
+    max-height: 800px;
     margin: 24px auto;
-    min-height: 640px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -47,6 +49,7 @@
     padding: 24px 18px;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
   }
   .brand {
     display: flex;
@@ -115,10 +118,12 @@
   }
 
   /* ---- main chat ---- */
-  .chat { display: flex; flex-direction: column; min-height: 640px; background: var(--surface); }
+  .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--surface); }
   .chat-header {
-    padding: 20px 28px 16px;
+    position: relative;
+    padding: 20px 64px 16px 28px;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
   .chat-header h1 {
     font-size: 16.5px;
@@ -132,8 +137,28 @@
     color: var(--muted);
     margin: 0;
   }
+  .new-chat-btn {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--text-soft);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 13px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+  }
+  .new-chat-btn:hover { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent-soft); }
   .chat-scroll {
     flex: 1;
+    min-height: 0;
     padding: 22px 28px;
     display: flex;
     flex-direction: column;
@@ -199,6 +224,7 @@
     gap: 10px;
     padding: 16px 28px 22px;
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
   }
   .composer input {
     flex: 1;
@@ -258,35 +284,10 @@
     <div class="chat-header">
       <h1>청약·배서 매뉴얼 어시스턴트</h1>
       <p id="scopeText">전체 생명사 자료를 기준으로 답변합니다</p>
+      <button class="new-chat-btn" id="newChatBtn" title="새 대화 시작">＋ 새 대화</button>
     </div>
 
-    <div class="chat-scroll" id="chatScroll">
-      <div class="msg-user">삼성생명 암보험 청약 시 고지의무 기준이 어떻게 돼?</div>
-      <div class="msg-bot">
-        <div class="msg-bot-text">삼성생명 암보험 청약 매뉴얼에 따르면, 청약 시 다음 3가지를 고지의무 대상으로 명시하고 있습니다.
-
-1. 최근 5년 이내 암 진단 또는 치료 이력
-2. 최근 3개월 이내 정밀검사(조직검사, 영상검사 등) 시행 여부
-3. 직계가족(부모, 형제자매)의 암 병력 3건 이상
-
-고지의무 위반 시 계약 해지 및 보험금 지급 제한 사유가 될 수 있다고 안내하고 있습니다.
-
-최종 확인은 원본 매뉴얼 또는 해당 생명사 담당자를 통해 진행해주세요.</div>
-        <div class="sources">
-          <span class="stamp">삼성생명 · 청약매뉴얼 · 암보험편.pdf</span>
-        </div>
-      </div>
-
-      <div class="msg-user">한화생명은 배서 처리 시 처리기한이 며칠이야?</div>
-      <div class="msg-bot">
-        <div class="msg-bot-text">확보된 자료 내에서는 한화생명의 배서 처리기한이 명시적으로 확인되지 않아 웹 검색으로 보완했습니다.
-
-일반적으로 생명보험 배서(계약내용 변경) 처리는 접수일로부터 영업일 기준 3~5일 이내 완료하는 것이 업계 표준으로 안내되고 있습니다. 다만 정확한 한화생명 자체 기준은 사내 자료에 추가되어야 확답이 가능합니다.
-
-최종 확인은 원본 매뉴얼 또는 해당 생명사 담당자를 통해 진행해주세요.</div>
-        <div class="web-note">자료 내 확인 불가 → 웹 검색으로 보완된 답변입니다</div>
-      </div>
-    </div>
+    <div class="chat-scroll" id="chatScroll"></div>
 
     <div class="composer">
       <input type="text" id="msgInput" placeholder="궁금한 청약·배서 조건을 입력하세요">
@@ -313,17 +314,59 @@
   const chatScroll = document.getElementById('chatScroll');
   const input = document.getElementById('msgInput');
   const sendBtn = document.getElementById('sendBtn');
+  const newChatBtn = document.getElementById('newChatBtn');
 
   // 백엔드 API 주소 (Railway 배포 주소)
   const API_BASE_URL = 'https://manual-bot-production-69ac.up.railway.app';
 
   let currentCompanyFilter = null; // '전체'면 null, 특정 생명사면 해당 이름
 
+  // 같은 브라우저로 다시 접속했을 때 이전 대화가 이어지도록 로컬에 저장.
+  // 다른 사람의 브라우저(새 접속)에는 저장된 게 없으니 항상 새 화면으로 시작됨.
+  const HISTORY_KEY = 'manualbot_chat_history';
+
+  function saveHistory() {
+    try { localStorage.setItem(HISTORY_KEY, chatScroll.innerHTML); } catch (e) { /* 무시 */ }
+  }
+
+  function showWelcome() {
+    chatScroll.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-bot';
+    const textDiv = document.createElement('div');
+    textDiv.className = 'msg-bot-text';
+    textDiv.textContent = '안녕하세요! 청약·배서 매뉴얼에 대해 궁금한 점을 물어보세요.';
+    wrap.appendChild(textDiv);
+    chatScroll.appendChild(wrap);
+  }
+
+  function loadHistory() {
+    let saved = null;
+    try { saved = localStorage.getItem(HISTORY_KEY); } catch (e) { /* 무시 */ }
+    if (saved) {
+      chatScroll.innerHTML = saved;
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+    } else {
+      showWelcome();
+    }
+  }
+
+  newChatBtn.addEventListener('click', () => {
+    if (chatScroll.children.length && !confirm('새 대화를 시작하면 지금까지의 대화 내용이 사라집니다. 계속할까요?')) {
+      return;
+    }
+    try { localStorage.removeItem(HISTORY_KEY); } catch (e) { /* 무시 */ }
+    showWelcome();
+  });
+
+  loadHistory();
+
   function addUserMessage(text) {
     const div = document.createElement('div');
     div.className = 'msg-user';
     div.textContent = text;
     chatScroll.appendChild(div);
+    saveHistory();
   }
 
   function addTyping() {
@@ -368,6 +411,7 @@
 
     chatScroll.appendChild(wrap);
     chatScroll.scrollTop = chatScroll.scrollHeight;
+    saveHistory();
   }
 
   function addErrorMessage(message) {
@@ -378,6 +422,7 @@
     wrap.innerHTML = '<div class="msg-bot-text" style="color:#DC2626;">' + message + '</div>';
     chatScroll.appendChild(wrap);
     chatScroll.scrollTop = chatScroll.scrollHeight;
+    saveHistory();
   }
 
   async function handleSend() {
