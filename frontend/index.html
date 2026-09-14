@@ -102,12 +102,12 @@
     flex-shrink: 0;
   }
   .brand-title {
-    /* typography.caption-strong: 14px/600/1.29/-0.224px */
-    font-family: var(--font-text);
-    font-size: 14px;
+    /* typography.tagline: 21px/600/1.19/0.231px */
+    font-family: var(--font-display);
+    font-size: 21px;
     font-weight: 600;
-    line-height: 1.29;
-    letter-spacing: -0.224px;
+    line-height: 1.19;
+    letter-spacing: 0.231px;
     color: var(--color-ink);
   }
   .brand-sub {
@@ -336,7 +336,24 @@
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">🫶</div>
+      <div class="brand-mark">
+        <svg viewBox="0 0 100 100" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50,22 C50,10 38,3 27,9 C14,16 14,32 27,44 L50,64 L73,44 C86,32 86,16 73,9 C62,3 50,10 50,22 Z"
+            fill="#dbe6fb" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M18,38 L34,38 L40,26 L47,50 L54,20 L60,38 L82,38"
+            fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M14,54 C11,51 6,51 4,54 C2,57 2,60 5,63 L17,75"
+            fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M20,60 C34,60 40,68 40,80 L40,90 L23,90 L23,78 C23,74 21,71 17,68"
+            fill="#dbe6fb" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M86,54 C89,51 94,51 96,54 C98,57 98,60 95,63 L83,75"
+            fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M80,60 C66,60 60,68 60,80 L60,90 L77,90 L77,78 C77,74 79,71 83,68"
+            fill="#dbe6fb" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+          <rect x="21" y="82" width="20" height="14" rx="2" fill="#ffffff"/>
+          <rect x="59" y="82" width="20" height="14" rx="2" fill="#ffffff"/>
+        </svg>
+      </div>
       <div>
         <div class="brand-title">생명 주니</div>
         <div class="brand-sub">박준희 생명 매뉴얼 어시스턴트</div>
@@ -360,7 +377,6 @@
 
   <main class="chat">
     <div class="chat-header">
-      <h1>생명 주니</h1>
       <p id="scopeText">전체 생명사 자료를 기준으로 답변합니다</p>
       <button class="new-chat-btn" id="newChatBtn" title="새 대화 시작">＋ 새 대화</button>
     </div>
