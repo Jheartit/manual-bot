@@ -79,12 +79,16 @@ def _looks_incomplete(answer: str) -> bool:
 
 
 def generate_answer(context: str, question: str, max_attempts: int = 2) -> str:
+    """'웹 검색으로 보완합니다'라고 말해놓고 실제로는 web_search 도구를 호출하지
+    않은 채 끝내버리는 경우가 있어, 그럴 땐 도구 호출을 강제해서 재시도한다."""
     answer = ""
-    for _ in range(max_attempts):
+    for attempt in range(max_attempts):
+        force_search = attempt > 0
         resp = client.responses.create(
             model=ANSWER_MODEL,
             instructions=SYSTEM_PROMPT,
             tools=[{"type": "web_search_preview"}],
+            tool_choice={"type": "web_search_preview"} if force_search else "auto",
             input=f"<검색된_자료>\n{context}\n</검색된_자료>\n\n질문: {question}",
         )
         answer = resp.output_text
