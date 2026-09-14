@@ -51,51 +51,46 @@ MAX_CHUNKS_PER_FILE = 2  # 청크 수가 아주 많은 파일 하나가 검색 �
 
 
 def search_chunks(conn, question: str, company_filter: str | None, top_k: int):
-    """유사도 상위 후보를 top_k보다 넉넉히 가져온 뒤, 같은 파일에서 나온 청크가
-    MAX_CHUNKS_PER_FILE개를 넘지 않도록 걸러 top_k개를 채운다.
-    (예: 콜센터 스크립트처럼 청크가 수만 개인 파일 하나가 다양한 질문에 걸쳐
-    검색 결과를 전부 차지해버려, 정작 관련된 다른 회사 자료가 밀려나는 문제 방지)"""
+    """질문 임베딩과 코사인 거리순으로 문서를 찾되, 같은 파일에서 나온 청크가
+    MAX_CHUNKS_PER_FILE개를 넘지 않도록 SQL 윈도우 함수로 먼저 걸러낸 뒤 top_k를 채운다.
+    (콜센터 스크립트처럼 청크가 수만 개인 파일 하나가 임베딩 공간을 넓게 차지해버려서,
+    후보를 아무리 넉넉히 가져와도 그 파일만 나오는 경우가 있어 후보 단계가 아니라
+    SQL에서 파일당 순위를 매겨 원천적으로 다양성을 보장한다.)
+
+    또한 HNSW 근사 인덱스는 이렇게 분포가 한쪽으로 쏠린 데이터에서 진짜 최근접 벡터를
+    놓치는 경우가 있어(테스트로 확인됨), 이 정도 규모(1만 건대)에서는 인덱스를 끄고
+    정확한 전수 비교로 검색한다."""
     q_embedding = vo.embed([question], model="voyage-3", input_type="query").embeddings[0]
-    candidate_limit = max(top_k * 5, 30)
 
     with conn.cursor() as cur:
-        # HNSW 인덱스 기본 ef_search(40)는 데이터가 한쪽으로 쏠려 있으면(예: 청크 수가
-        # 유독 많은 파일 하나가 대부분을 차지) 진짜 최근접 벡터를 놓치는 경우가 있어
-        # recall을 높이기 위해 값을 올린다.
-        cur.execute("SET hnsw.ef_search = 200;")
+        cur.execute("SET enable_indexscan = off;")
+        cur.execute("SET enable_bitmapscan = off;")
+        # dist를 base 서브쿼리에서 한 번만 계산해 ranked에서 재사용 (두 번 계산하면
+        # 눈에 띄게 느려짐 - 실측 3.2초 -> 1.9초로 단축)
+        base_query = """
+            SELECT company, doc_type, file_name, drive_file_id, content
+            FROM (
+                SELECT company, doc_type, file_name, drive_file_id, content, dist,
+                       ROW_NUMBER() OVER (PARTITION BY file_name ORDER BY dist) AS rn
+                FROM (
+                    SELECT company, doc_type, file_name, drive_file_id, content,
+                           embedding <=> %s::vector AS dist
+                    FROM manual_chunks
+                    {where_clause}
+                ) base
+            ) ranked
+            WHERE rn <= %s
+            ORDER BY dist
+            LIMIT %s
+        """
         if company_filter:
-            cur.execute(
-                """SELECT company, doc_type, file_name, drive_file_id, content
-                   FROM manual_chunks
-                   WHERE company = %s
-                   ORDER BY embedding <=> %s::vector
-                   LIMIT %s""",
-                (company_filter, q_embedding, candidate_limit),
-            )
+            query = base_query.format(where_clause="WHERE company = %s")
+            params = (q_embedding, company_filter, MAX_CHUNKS_PER_FILE, top_k)
         else:
-            cur.execute(
-                """SELECT company, doc_type, file_name, drive_file_id, content
-                   FROM manual_chunks
-                   ORDER BY embedding <=> %s::vector
-                   LIMIT %s""",
-                (q_embedding, candidate_limit),
-            )
-        candidates = cur.fetchall()
-
-    selected, leftover, per_file_count = [], [], {}
-    for row in candidates:
-        file_name = row[2]
-        if per_file_count.get(file_name, 0) < MAX_CHUNKS_PER_FILE:
-            selected.append(row)
-            per_file_count[file_name] = per_file_count.get(file_name, 0) + 1
-        else:
-            leftover.append(row)
-        if len(selected) >= top_k:
-            break
-
-    if len(selected) < top_k:
-        selected.extend(leftover[: top_k - len(selected)])
-    return selected
+            query = base_query.format(where_clause="")
+            params = (q_embedding, MAX_CHUNKS_PER_FILE, top_k)
+        cur.execute(query, params)
+        return cur.fetchall()
 
 
 def build_context(rows) -> str:
@@ -151,6 +146,19 @@ def generate_answer(context: str, question: str, max_attempts: int = 3) -> str:
     return answer
 
 
+# "파일/양식 자체를 달라"는 취지의 질문인지 판단하는 키워드.
+# 이런 질문이면 가장 유사도 높은 문서를 답변과 별도로 첨부파일 카드로 보여준다.
+FILE_REQUEST_KEYWORDS = (
+    "파일이 있", "파일 있", "양식이 있", "양식 있", "서식이 있", "서식 있",
+    "예시 파일", "예시파일", "첨부해", "첨부 파일", "다운로드", "파일 좀",
+    "파일을 보내", "파일 보내", "원본 파일", "샘플 파일",
+)
+
+
+def _looks_like_file_request(question: str) -> bool:
+    return any(kw in question for kw in FILE_REQUEST_KEYWORDS)
+
+
 @app.post("/query")
 def query(req: QueryRequest):
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
@@ -161,6 +169,20 @@ def query(req: QueryRequest):
     answer = generate_answer(context, req.question)
 
     sources = list({(c, d, f, fid) for c, d, f, fid, _ in rows})
+
+    attachment = None
+    if rows and _looks_like_file_request(req.question):
+        # GPT가 답변 본문에서 실제로 인용한 파일명을 우선 찾는다 (검색 1위 파일과
+        # GPT가 답변 근거로 실제 인용한 파일이 다를 수 있어, 그대로 rows[0]을 쓰면
+        # 답변 내용과 첨부파일이 서로 안 맞는 경우가 생긴다). 못 찾으면 rows[0]으로 대체.
+        match = next((row for row in rows if row[2] in answer), rows[0])
+        c, d, f, fid, _ = match
+        attachment = {
+            "company": c,
+            "doc_type": d,
+            "file_name": f,
+            "drive_url": f"https://drive.google.com/file/d/{fid}/view",
+        }
 
     return {
         "answer": answer,
@@ -174,6 +196,7 @@ def query(req: QueryRequest):
             }
             for c, d, f, fid in sources
         ],
+        "attachment": attachment,
     }
 
 

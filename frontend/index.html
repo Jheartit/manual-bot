@@ -314,6 +314,40 @@
     border-radius: var(--radius-md);
     display: inline-block;
   }
+  .attachment-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    max-width: 320px;
+    background: var(--color-canvas);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+  .attachment-card:hover {
+    border-color: var(--color-primary);
+    background: var(--color-canvas-parchment);
+  }
+  .attachment-icon { font-size: 22px; flex-shrink: 0; }
+  .attachment-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .attachment-name {
+    font-family: var(--font-text);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.224px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .attachment-hint {
+    font-family: var(--font-text);
+    font-size: 11px;
+    color: var(--color-primary);
+  }
   .sources {
     display: flex;
     flex-wrap: wrap;
@@ -635,6 +669,21 @@
       wrap.appendChild(note);
     }
 
+    if (reply.attachment) {
+      const card = document.createElement('a');
+      card.className = 'attachment-card';
+      card.href = reply.attachment.url;
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      card.innerHTML =
+        '<span class="attachment-icon">📎</span>' +
+        '<span class="attachment-info">' +
+          '<span class="attachment-name">' + reply.attachment.label + '</span>' +
+          '<span class="attachment-hint">클릭해서 원본 파일 열기 (Google Drive)</span>' +
+        '</span>';
+      wrap.appendChild(card);
+    }
+
     if (reply.sources.length) {
       const srcWrap = document.createElement('div');
       srcWrap.className = 'sources';
@@ -693,13 +742,20 @@
       }
 
       const data = await res.json();
-      // rag_query.py 응답 형식: { answer: string, sources: [{company, doc_type, file_name, drive_url}, ...] }
+      // rag_query.py 응답 형식:
+      // { answer, sources: [{company, doc_type, file_name, drive_url}, ...], attachment: {...} | null }
       const webNote = data.answer.includes('웹 검색으로 보완');
       addBotMessage({
         text: data.answer,
         sources: (data.sources || []).map(s =>
           ({ label: s.company + ' · ' + s.doc_type + '매뉴얼 · ' + s.file_name, url: s.drive_url })
         ),
+        attachment: data.attachment
+          ? {
+              label: data.attachment.company + ' · ' + data.attachment.doc_type + '매뉴얼 · ' + data.attachment.file_name,
+              url: data.attachment.drive_url,
+            }
+          : null,
         webNote: webNote
       });
     } catch (err) {
