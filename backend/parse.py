@@ -36,6 +36,18 @@ load_dotenv()  # 이 모듈이 어디서 import되든 클라이언트 생성 전
 client = OpenAI(timeout=90.0, max_retries=2)  # OPENAI_API_KEY 환경변수 사용
 VISION_MODEL = "gpt-4o"
 
+# 신분증/자필서명 등 개인정보로 보이는 이미지는 GPT가 처리를 거부하고 이런 문구를 영어로
+# 돌려주는 경우가 있다. 이걸 걸러내지 않으면 거부 메시지가 정상 텍스트인 것처럼 저장된다.
+_REFUSAL_MARKERS = (
+    "i'm sorry", "i am sorry", "i can't assist", "i cannot assist",
+    "i can't help", "i cannot help", "unable to assist", "can't provide assistance",
+)
+
+
+def _looks_like_refusal(text: str) -> bool:
+    t = text.strip().lower()
+    return len(t) < 200 and any(m in t for m in _REFUSAL_MARKERS)
+
 
 def parse_pdf(path: str) -> str:
     """텍스트 기반 PDF 우선 시도, 텍스트가 거의 없으면 스캔본으로 간주해 OCR로 전환"""
@@ -83,7 +95,15 @@ def ocr_pdf_via_vision(path: str, max_pages: int = 30) -> str:
             }]
         )
         page_text = resp.choices[0].message.content or ""
-        results.append(f"[페이지 {i+1}]\n{page_text}")
+        if _looks_like_refusal(page_text):
+            continue  # 개인정보 등으로 판단해 거부한 페이지는 건너뜀
+        if page_text.strip():
+            results.append(f"[페이지 {i+1}]\n{page_text}")
+    if not results:
+        raise ValueError(
+            "GPT Vision이 모든 페이지 처리를 거부했습니다 "
+            "(신분증·자필서명 등 개인정보로 판단된 문서일 수 있음)"
+        )
     return "\n\n".join(results)
 
 
@@ -113,7 +133,13 @@ def parse_image(path: str) -> str:
             ]
         }]
     )
-    return resp.choices[0].message.content or ""
+    text = resp.choices[0].message.content or ""
+    if _looks_like_refusal(text):
+        raise ValueError(
+            "GPT Vision이 이미지 처리를 거부했습니다 "
+            "(신분증·자필서명 등 개인정보로 판단된 이미지일 수 있음)"
+        )
+    return text
 
 
 def _is_blank_row(row) -> bool:
