@@ -227,8 +227,9 @@
   .new-chat-btn {
     /* component.button-dark-utility */
     position: absolute;
-    top: var(--space-lg);
+    top: 50%;
     right: var(--space-lg);
+    transform: translateY(-50%);
     display: flex;
     align-items: center;
     gap: 5px;
@@ -243,7 +244,7 @@
     cursor: pointer;
   }
   .new-chat-btn:hover { background: var(--color-ink-muted-80); }
-  .new-chat-btn:active { transform: scale(0.95); }
+  .new-chat-btn:active { transform: translateY(-50%) scale(0.95); }
   .chat-scroll {
     flex: 1;
     min-height: 0;
@@ -387,10 +388,6 @@
       <button class="company-item" data-company="NH농협생명">NH농협생명</button>
       <button class="company-item" data-company="미래에셋생명">미래에셋생명</button>
     </div>
-    <div class="sidebar-footer">
-      자료 출처: 사내 구글드라이브<br>
-      최근 동기화: 오늘 06:00
-    </div>
   </aside>
 
   <main class="chat">
@@ -400,12 +397,17 @@
     </div>
 
     <div class="chat-scroll" id="chatScroll"></div>
-
-    <div class="composer">
-      <input type="text" id="msgInput" placeholder="궁금한 청약·배서 조건을 입력하세요">
-      <button id="sendBtn">보내기</button>
-    </div>
   </main>
+
+  <div class="sidebar-footer">
+    자료 출처: 사내 구글드라이브<br>
+    최근 동기화: 오늘 06:00
+  </div>
+
+  <div class="composer">
+    <input type="text" id="msgInput" placeholder="궁금한 청약·배서 조건을 입력하세요">
+    <button id="sendBtn">보내기</button>
+  </div>
 </div>
 
 <script>
