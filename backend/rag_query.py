@@ -159,6 +159,20 @@ def _looks_like_file_request(question: str) -> bool:
     return any(kw in question for kw in FILE_REQUEST_KEYWORDS)
 
 
+def _company_mentioned(company: str, question: str) -> bool:
+    """정식 회사명 전체가 없어도(예: "BNP카디바생명"을 "카디바생명"이라고만 말하는 경우)
+    "BNP" 같은 앞쪽 브랜드 접두어가 생략된 경우까지 인식한다. 뒤에서부터 시작하는
+    부분 문자열이 4글자 이상 남을 때만 인정해 지나치게 짧아 오탐하는 것(예: "생명"만
+    일치)은 막는다."""
+    if company in question:
+        return True
+    for start in range(1, len(company) - 3):
+        suffix = company[start:]
+        if len(suffix) >= 4 and suffix in question:
+            return True
+    return False
+
+
 def _detect_company_in_question(conn, question: str) -> str | None:
     """사이드바에서 '전체'를 선택한 채로도, 질문에 특정 생명사 이름이 명시돼 있으면
     그 회사로 좁혀서 검색한다. top_k(8)는 고정인데 '전체' 검색은 후보가 1만 건대라
@@ -169,7 +183,7 @@ def _detect_company_in_question(conn, question: str) -> str | None:
     with conn.cursor() as cur:
         cur.execute("SELECT DISTINCT company FROM manual_chunks")
         companies = [r[0] for r in cur.fetchall()]
-    matched = [c for c in companies if c in question]
+    matched = [c for c in companies if _company_mentioned(c, question)]
     return matched[0] if len(matched) == 1 else None
 
 
