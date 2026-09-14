@@ -390,12 +390,6 @@
     <div class="filter-label">생명사 필터</div>
     <div class="company-list" id="companyList">
       <button class="company-item active" data-company="전체">전체</button>
-      <button class="company-item" data-company="삼성생명">삼성생명</button>
-      <button class="company-item" data-company="한화생명">한화생명</button>
-      <button class="company-item" data-company="교보생명">교보생명</button>
-      <button class="company-item" data-company="신한라이프">신한라이프</button>
-      <button class="company-item" data-company="NH농협생명">NH농협생명</button>
-      <button class="company-item" data-company="미래에셋생명">미래에셋생명</button>
     </div>
   </aside>
 
@@ -420,8 +414,13 @@
 </div>
 
 <script>
+  // 백엔드 API 주소 (Railway 배포 주소)
+  const API_BASE_URL = 'https://manual-bot-production-69ac.up.railway.app';
+
   const companyList = document.getElementById('companyList');
   const scopeText = document.getElementById('scopeText');
+  let currentCompanyFilter = null; // '전체'면 null, 특정 생명사면 해당 이름
+
   companyList.addEventListener('click', (e) => {
     const btn = e.target.closest('.company-item');
     if (!btn) return;
@@ -434,15 +433,30 @@
     currentCompanyFilter = company === '전체' ? null : company;
   });
 
+  // 하드코딩된 목록 대신 실제 DB에 자료가 있는 생명사만 백엔드에서 받아와 렌더링.
+  // 이름이 하나라도 DB 값과 다르면 필터가 조용히 0건을 반환하므로 반드시 서버 값을 그대로 써야 함.
+  async function loadCompanies() {
+    try {
+      const res = await fetch(API_BASE_URL + '/companies');
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.companies || []).forEach(company => {
+        const btn = document.createElement('button');
+        btn.className = 'company-item';
+        btn.dataset.company = company;
+        btn.textContent = company;
+        companyList.appendChild(btn);
+      });
+    } catch (e) {
+      // 목록 로드 실패해도 "전체" 필터는 그대로 쓸 수 있으니 조용히 무시
+    }
+  }
+  loadCompanies();
+
   const chatScroll = document.getElementById('chatScroll');
   const input = document.getElementById('msgInput');
   const sendBtn = document.getElementById('sendBtn');
   const newChatBtn = document.getElementById('newChatBtn');
-
-  // 백엔드 API 주소 (Railway 배포 주소)
-  const API_BASE_URL = 'https://manual-bot-production-69ac.up.railway.app';
-
-  let currentCompanyFilter = null; // '전체'면 null, 특정 생명사면 해당 이름
 
   // 같은 브라우저로 다시 접속했을 때 이전 대화가 이어지도록 로컬에 저장.
   // 다른 사람의 브라우저(새 접속)에는 저장된 게 없으니 항상 새 화면으로 시작됨.

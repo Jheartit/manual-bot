@@ -168,4 +168,15 @@ def query(req: QueryRequest):
     }
 
 
+@app.get("/companies")
+def companies():
+    """사이드바 필터 목록을 하드코딩하지 않고 실제 DB에 자료가 있는 생명사만 내려준다."""
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT company FROM manual_chunks ORDER BY company")
+        rows = cur.fetchall()
+    conn.close()
+    return {"companies": [r[0] for r in rows]}
+
+
 # 실행: uvicorn rag_query:app --reload --port 8000
