@@ -35,7 +35,10 @@ SYSTEM_PROMPT = """당신은 생명보험사 청약/배서 매뉴얼을 참고�
    "찾아보겠습니다", "잠시만 기다려 주세요"처럼 지금부터 검색하겠다는 진행 상황 멘트는 절대 쓰지 마세요 —
    검색은 이미 끝난 상태로, 결과가 반영된 완성된 답변만 출력하세요.
 4. 청약/배서 조건은 실무에 직접 영향을 주는 정보이므로, 답변 마지막에 "최종 확인은 원본 매뉴얼 또는 해당 생명사 담당자를 통해 진행해주세요."를 덧붙이세요.
-5. 추측이나 확인되지 않은 정보를 자료나 검색 결과 없이 단정적으로 말하지 마세요."""
+5. 추측이나 확인되지 않은 정보를 자료나 검색 결과 없이 단정적으로 말하지 마세요.
+6. web_search 결과가 질문과 실제로 무관하면(예: 보험과 관계없는 생활정보 등) 그 결과를 절대 답변에
+   쓰지 마세요. 그런 경우엔 "자료 및 웹 검색에서 관련 정보를 찾지 못했습니다. 정확한 정보는 해당
+   생명사 고객센터나 담당자를 통해 확인해주세요."라고만 답하세요."""
 
 
 class QueryRequest(BaseModel):
@@ -125,15 +128,21 @@ def _final_message_text(resp) -> str:
 
 def generate_answer(context: str, question: str, max_attempts: int = 3) -> str:
     """'웹 검색으로 보완합니다'라고 말해놓고 실제로는 web_search 도구를 호출하지
-    않은 채 끝내버리는 경우가 있어, 그럴 땐 도구 호출을 강제해서 재시도한다."""
+    않은 채 끝내버리는 경우가 있어 재시도한다.
+
+    이전에는 재시도 시 tool_choice를 강제로 web_search_preview로 고정했는데,
+    "쑥쑥이"처럼 애초에 실존하지 않거나 검색해도 안 나오는 상품명에 대해
+    강제로 검색을 시키면 도구가 질문과 전혀 무관한 내용(예: 과일파리 퇴치법,
+    목감기 치료법)을 가져와 그걸 그대로 답변에 반영해버리는 심각한 문제가 있었다.
+    강제하지 않고 "auto"로만 재시도해, 모델이 검색해도 의미가 없다고 판단하면
+    억지로 검색하지 않고 정직하게 "자료에 없다"고 답할 수 있게 한다."""
     answer = ""
-    for attempt in range(max_attempts):
-        force_search = attempt > 0
+    for _ in range(max_attempts):
         resp = client.responses.create(
             model=ANSWER_MODEL,
             instructions=SYSTEM_PROMPT,
             tools=[{"type": "web_search_preview"}],
-            tool_choice={"type": "web_search_preview"} if force_search else "auto",
+            tool_choice="auto",
             input=f"<드라이브_자료>\n{context}\n</드라이브_자료>\n\n질문: {question}",
         )
         answer = _final_message_text(resp)
