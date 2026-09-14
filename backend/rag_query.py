@@ -23,7 +23,7 @@ app.add_middleware(
 
 vo = voyageai.Client()
 client = OpenAI(timeout=60.0, max_retries=2)  # OPENAI_API_KEY 환경변수 사용, 요청 행 방지
-ANSWER_MODEL = "gpt-4o"
+ANSWER_MODEL = "gpt-4o-mini"  # gpt-4o는 기본 TPM 한도(30K)가 낮아 사용자가 늘면 429가 잦다
 
 SYSTEM_PROMPT = """당신은 생명보험사 청약/배서 매뉴얼을 참고해 답변하는 업무 보조 봇입니다.
 
