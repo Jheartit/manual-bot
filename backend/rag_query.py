@@ -72,6 +72,27 @@ def build_context(rows) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+def _looks_incomplete(answer: str) -> bool:
+    """'웹 검색으로 보완합니다'라고 밝혀놓고 실제 검색 내용 없이 바로 끝내버리는
+    부실한 답변이 가끔 나온다. 그런 경우를 감지해 재시도하기 위한 휴리스틱."""
+    return "웹 검색" in answer and len(answer) < 250
+
+
+def generate_answer(context: str, question: str, max_attempts: int = 2) -> str:
+    answer = ""
+    for _ in range(max_attempts):
+        resp = client.responses.create(
+            model=ANSWER_MODEL,
+            instructions=SYSTEM_PROMPT,
+            tools=[{"type": "web_search_preview"}],
+            input=f"<검색된_자료>\n{context}\n</검색된_자료>\n\n질문: {question}",
+        )
+        answer = resp.output_text
+        if not _looks_incomplete(answer):
+            break
+    return answer
+
+
 @app.post("/query")
 def query(req: QueryRequest):
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
@@ -79,15 +100,7 @@ def query(req: QueryRequest):
     conn.close()
 
     context = build_context(rows)
-
-    resp = client.responses.create(
-        model=ANSWER_MODEL,
-        instructions=SYSTEM_PROMPT,
-        tools=[{"type": "web_search_preview"}],
-        input=f"<검색된_자료>\n{context}\n</검색된_자료>\n\n질문: {req.question}",
-    )
-
-    answer = resp.output_text
+    answer = generate_answer(context, req.question)
 
     sources = list({(c, d, f) for c, d, f, _ in rows})
 
