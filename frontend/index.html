@@ -161,6 +161,10 @@
   }
   .company-item {
     /* button-utility 타이포(14px/400/-0.224px) + compact utility 라운드(sm) */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-xs);
     text-align: left;
     background: none;
     border: none;
@@ -181,6 +185,21 @@
     font-weight: 600;
   }
   .company-item:active { transform: scale(0.97); }
+  .company-item .company-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fav-star {
+    flex-shrink: 0;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--color-hairline);
+    padding: 2px;
+  }
+  .fav-star:hover { color: var(--color-ink-muted-48); }
+  .fav-star.favorited { color: #f5a623; }
+  .fav-divider {
+    border: none;
+    border-top: 1px solid var(--color-hairline);
+    margin: var(--space-xs) 0;
+  }
   .sidebar-footer {
     /* composer와 같은 그리드 행(3행)에 놓여 border-top 라인이 자동으로 맞춰진다 */
     background: var(--color-canvas-parchment);
@@ -420,17 +439,88 @@
   const companyList = document.getElementById('companyList');
   const scopeText = document.getElementById('scopeText');
   let currentCompanyFilter = null; // '전체'면 null, 특정 생명사면 해당 이름
+  let allCompanies = [];
 
-  companyList.addEventListener('click', (e) => {
-    const btn = e.target.closest('.company-item');
-    if (!btn) return;
+  const FAVORITES_KEY = 'manualbot_favorite_companies';
+
+  function loadFavorites() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]'));
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveFavorites(favSet) {
+    try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favSet])); } catch (e) { /* 무시 */ }
+  }
+
+  function selectCompany(company) {
     companyList.querySelectorAll('.company-item').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const company = btn.dataset.company;
+    const target = companyList.querySelector(`.company-item[data-company="${CSS.escape(company)}"]`);
+    if (target) target.classList.add('active');
     scopeText.textContent = company === '전체'
       ? '전체 생명사 자료를 기준으로 답변합니다'
       : company + ' 자료를 기준으로 답변합니다';
     currentCompanyFilter = company === '전체' ? null : company;
+  }
+
+  function makeCompanyButton(company, isFavorited) {
+    const btn = document.createElement('button');
+    btn.className = 'company-item';
+    btn.dataset.company = company;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'company-name';
+    nameSpan.textContent = company;
+    btn.appendChild(nameSpan);
+
+    const star = document.createElement('span');
+    star.className = 'fav-star' + (isFavorited ? ' favorited' : '');
+    star.textContent = isFavorited ? '★' : '☆';
+    star.title = isFavorited ? '즐겨찾기 해제' : '즐겨찾기에 추가';
+    btn.appendChild(star);
+
+    return btn;
+  }
+
+  function renderCompanyList() {
+    const wasActive = currentCompanyFilter || '전체';
+    const favorites = loadFavorites();
+    companyList.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'company-item';
+    allBtn.dataset.company = '전체';
+    allBtn.textContent = '전체';
+    companyList.appendChild(allBtn);
+
+    const favList = allCompanies.filter(c => favorites.has(c));
+    const restList = allCompanies.filter(c => !favorites.has(c));
+
+    favList.forEach(c => companyList.appendChild(makeCompanyButton(c, true)));
+    if (favList.length) {
+      companyList.appendChild(document.createElement('hr')).className = 'fav-divider';
+    }
+    restList.forEach(c => companyList.appendChild(makeCompanyButton(c, false)));
+
+    selectCompany(wasActive);
+  }
+
+  companyList.addEventListener('click', (e) => {
+    const star = e.target.closest('.fav-star');
+    if (star) {
+      const btn = star.closest('.company-item');
+      const company = btn.dataset.company;
+      const favorites = loadFavorites();
+      if (favorites.has(company)) favorites.delete(company); else favorites.add(company);
+      saveFavorites(favorites);
+      renderCompanyList();
+      return;
+    }
+    const btn = e.target.closest('.company-item');
+    if (!btn) return;
+    selectCompany(btn.dataset.company);
   });
 
   // 하드코딩된 목록 대신 실제 DB에 자료가 있는 생명사만 백엔드에서 받아와 렌더링.
@@ -440,13 +530,8 @@
       const res = await fetch(API_BASE_URL + '/companies');
       if (!res.ok) return;
       const data = await res.json();
-      (data.companies || []).forEach(company => {
-        const btn = document.createElement('button');
-        btn.className = 'company-item';
-        btn.dataset.company = company;
-        btn.textContent = company;
-        companyList.appendChild(btn);
-      });
+      allCompanies = data.companies || [];
+      renderCompanyList();
     } catch (e) {
       // 목록 로드 실패해도 "전체" 필터는 그대로 쓸 수 있으니 조용히 무시
     }
