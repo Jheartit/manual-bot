@@ -248,6 +248,8 @@
     color: var(--color-ink);
     white-space: pre-line;
   }
+  .msg-bot-text a { color: var(--color-primary); }
+  .msg-bot-text strong { font-weight: 600; }
   .web-note {
     /* typography.caption, parchment 표면 + primary 텍스트로 최소한의 강조만 부여 */
     font-family: var(--font-text);
@@ -454,6 +456,22 @@
     chatScroll.scrollTop = chatScroll.scrollHeight;
   }
 
+  // GPT 답변에 마크다운(**굵게**, [텍스트](링크))이 섞여 오는데 그걸 그냥
+  // textContent로 넣으면 별표/대괄호가 그대로 보인다. 최소한의 안전한
+  // 마크다운만 실제 서식으로 바꿔준다 (HTML은 먼저 이스케이프해서 주입 방지).
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderMarkdownLite(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/^-\s+/gm, '• ');
+    return html;
+  }
+
   function addBotMessage(reply) {
     const typing = document.getElementById('typingIndicator');
     if (typing) typing.remove();
@@ -463,7 +481,7 @@
 
     const textDiv = document.createElement('div');
     textDiv.className = 'msg-bot-text';
-    textDiv.textContent = reply.text;
+    textDiv.innerHTML = renderMarkdownLite(reply.text);
     wrap.appendChild(textDiv);
 
     if (reply.webNote) {
