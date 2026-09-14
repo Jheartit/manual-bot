@@ -3,25 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <title>청약·배서 매뉴얼 어시스턴트</title>
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css">
 <style>
   :root {
-    --paper: #F3EFE6;
-    --panel: #FBF9F4;
-    --ink: #1E2A44;
-    --ink-soft: #435066;
-    --body: #3B372E;
-    --muted: #8A806E;
-    --line: #DDD5C4;
-    --stamp: #A13D2E;
-    --stamp-bg: #F7EAE6;
-    --gold: #A98552;
+    --bg: #FFFFFF;
+    --surface: #FFFFFF;
+    --sidebar-bg: #FAFAFA;
+    --text: #101828;
+    --text-soft: #344054;
+    --muted: #667085;
+    --border: #E4E7EC;
+    --accent: #2563EB;
+    --accent-soft: #EFF4FF;
+    --accent-strong: #1D4ED8;
+    --danger: #DC2626;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--paper);
-    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
-    color: var(--body);
+    background: var(--bg);
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "SF Pro Text",
+      "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
   }
   .app {
     display: grid;
@@ -29,36 +34,40 @@
     max-width: 980px;
     margin: 24px auto;
     min-height: 640px;
-    background: var(--panel);
-    border: 1px solid var(--line);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 24px rgba(16, 24, 40, 0.04);
   }
   /* ---- sidebar ---- */
   .sidebar {
-    border-right: 1px solid var(--line);
-    padding: 24px 20px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    padding: 24px 18px;
     display: flex;
     flex-direction: column;
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 11px;
     margin-bottom: 28px;
   }
   .brand-mark {
-    width: 36px; height: 36px;
-    border: 1.5px solid var(--ink);
-    border-radius: 50%;
+    width: 34px; height: 34px;
+    border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
-    font-family: "Noto Serif KR", "Nanum Myeongjo", serif;
-    font-size: 16px;
-    color: var(--ink);
+    background: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
     flex-shrink: 0;
   }
   .brand-title {
-    font-family: "Noto Serif KR", "Nanum Myeongjo", serif;
-    font-size: 15px;
-    color: var(--ink);
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--text);
     line-height: 1.3;
   }
   .brand-sub {
@@ -68,55 +77,55 @@
   }
   .filter-label {
     font-size: 12px;
+    font-weight: 600;
     color: var(--muted);
     margin-bottom: 10px;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
   }
   .company-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     margin-bottom: 28px;
   }
   .company-item {
     text-align: left;
     background: none;
     border: none;
-    border-left: 2px solid transparent;
-    padding: 7px 10px;
+    border-radius: 8px;
+    padding: 8px 10px;
     font-size: 13.5px;
-    color: var(--ink-soft);
+    font-family: inherit;
+    color: var(--text-soft);
     cursor: pointer;
-    border-radius: 0;
   }
-  .company-item:hover { background: var(--paper); }
+  .company-item:hover { background: #F0F1F3; }
   .company-item.active {
-    border-left: 2px solid var(--stamp);
-    color: var(--ink);
-    background: var(--paper);
+    color: var(--accent-strong);
+    background: var(--accent-soft);
     font-weight: 600;
   }
   .sidebar-footer {
     margin-top: auto;
     padding-top: 16px;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
     font-size: 11.5px;
     color: var(--muted);
     line-height: 1.6;
   }
 
   /* ---- main chat ---- */
-  .chat { display: flex; flex-direction: column; min-height: 640px; }
+  .chat { display: flex; flex-direction: column; min-height: 640px; background: var(--surface); }
   .chat-header {
     padding: 20px 28px 16px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
   }
   .chat-header h1 {
-    font-family: "Noto Serif KR", "Nanum Myeongjo", serif;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--ink);
+    font-size: 16.5px;
+    font-weight: 700;
+    color: var(--text);
     margin: 0 0 4px;
+    letter-spacing: -0.01em;
   }
   .chat-header p {
     font-size: 13px;
@@ -135,41 +144,43 @@
   .msg-user {
     align-self: flex-end;
     max-width: 70%;
-    background: var(--ink);
-    color: #F3EFE6;
+    background: var(--text);
+    color: #FFFFFF;
     padding: 10px 14px;
     font-size: 14px;
     line-height: 1.55;
-    border-radius: 2px;
+    border-radius: 14px 14px 4px 14px;
   }
 
   .msg-bot { max-width: 82%; }
   .msg-bot-text {
     font-size: 14px;
     line-height: 1.7;
-    color: var(--body);
+    color: var(--text-soft);
     white-space: pre-line;
   }
   .web-note {
     font-size: 12px;
-    color: var(--gold);
+    color: var(--accent-strong);
     margin-top: 8px;
-    padding-left: 10px;
-    border-left: 2px solid var(--gold);
+    padding: 6px 10px;
+    background: var(--accent-soft);
+    border-radius: 8px;
+    display: inline-block;
   }
   .sources {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     margin-top: 12px;
   }
   .stamp {
-    border: 1px solid var(--stamp);
-    color: var(--stamp);
-    background: var(--stamp-bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: #FAFAFA;
+    border-radius: 999px;
     font-size: 11.5px;
-    padding: 4px 9px;
-    transform: rotate(-1deg);
+    padding: 4px 10px;
     white-space: nowrap;
   }
 
@@ -187,28 +198,33 @@
     display: flex;
     gap: 10px;
     padding: 16px 28px 22px;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
   }
   .composer input {
     flex: 1;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
+    border-radius: 10px;
     background: #fff;
-    padding: 10px 12px;
+    padding: 10px 14px;
     font-size: 14px;
-    color: var(--body);
+    color: var(--text);
     outline: none;
     font-family: inherit;
   }
-  .composer input:focus { border-color: var(--ink-soft); }
+  .composer input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .composer button {
-    border: 1px solid var(--ink);
-    background: var(--ink);
-    color: #F3EFE6;
-    padding: 0 18px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #FFFFFF;
+    padding: 0 20px;
     font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
     cursor: pointer;
   }
-  .composer button:hover { background: var(--ink-soft); border-color: var(--ink-soft); }
+  .composer button:hover { background: var(--accent-strong); }
+  .composer button:disabled { opacity: 0.6; cursor: default; }
 </style>
 </head>
 <body>
@@ -360,7 +376,7 @@
     if (typing) typing.remove();
     const wrap = document.createElement('div');
     wrap.className = 'msg-bot';
-    wrap.innerHTML = '<div class="msg-bot-text" style="color:#A13D2E;">' + message + '</div>';
+    wrap.innerHTML = '<div class="msg-bot-text" style="color:#DC2626;">' + message + '</div>';
     chatScroll.appendChild(wrap);
     chatScroll.scrollTop = chatScroll.scrollHeight;
   }

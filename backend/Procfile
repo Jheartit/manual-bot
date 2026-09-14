@@ -1,0 +1,1 @@
+web: uvicorn rag_query:app --host 0.0.0.0 --port $PORT

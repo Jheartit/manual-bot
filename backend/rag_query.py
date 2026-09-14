@@ -1,11 +1,11 @@
 """
-4단계: 사용자 질문 → 벡터 검색 → Claude API 호출 (+ 부족하면 web_search로 보완)
+4단계: 사용자 질문 → 벡터 검색 → GPT API 호출 (+ 부족하면 web_search로 보완)
 FastAPI 서버로 감싸서 웹 UI에서 호출할 수 있게 구성.
 """
 import os
 import psycopg2
 import voyageai
-from anthropic import Anthropic
+from openai import OpenAI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -22,7 +22,8 @@ app.add_middleware(
 )
 
 vo = voyageai.Client()
-client = Anthropic()
+client = OpenAI(timeout=60.0, max_retries=2)  # OPENAI_API_KEY 환경변수 사용, 요청 행 방지
+ANSWER_MODEL = "gpt-4o"
 
 SYSTEM_PROMPT = """당신은 생명보험사 청약/배서 매뉴얼을 참고해 답변하는 업무 보조 봇입니다.
 
@@ -79,18 +80,14 @@ def query(req: QueryRequest):
 
     context = build_context(rows)
 
-    resp = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1500,
-        system=SYSTEM_PROMPT,
-        tools=[{"type": "web_search_20250305", "name": "web_search"}],
-        messages=[{
-            "role": "user",
-            "content": f"<검색된_자료>\n{context}\n</검색된_자료>\n\n질문: {req.question}"
-        }],
+    resp = client.responses.create(
+        model=ANSWER_MODEL,
+        instructions=SYSTEM_PROMPT,
+        tools=[{"type": "web_search_preview"}],
+        input=f"<검색된_자료>\n{context}\n</검색된_자료>\n\n질문: {req.question}",
     )
 
-    answer = "".join(block.text for block in resp.content if block.type == "text")
+    answer = resp.output_text
 
     sources = list({(c, d, f) for c, d, f, _ in rows})
 
