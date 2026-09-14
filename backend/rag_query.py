@@ -81,6 +81,21 @@ def _looks_incomplete(answer: str) -> bool:
     return "웹 검색" in answer and len(answer) < 250
 
 
+def _final_message_text(resp) -> str:
+    """도구를 쓰는 turn에서는 모델이 도구 호출 전에 미리 짧은 메시지를 하나 만들고,
+    도구 호출 후 최종 메시지를 또 만드는 경우가 있다. resp.output_text는 이 둘을
+    구분 없이 이어붙이기 때문에 중간 메시지 뒤에 최종 답변이 그대로 붙어버린다.
+    실제로 보여줘야 할 건 output의 마지막 message뿐이다."""
+    messages = [item for item in resp.output if item.type == "message"]
+    if not messages:
+        return resp.output_text
+    last = messages[-1]
+    return "".join(
+        getattr(part, "text", "") for part in last.content
+        if getattr(part, "type", None) == "output_text"
+    )
+
+
 def generate_answer(context: str, question: str, max_attempts: int = 2) -> str:
     """'웹 검색으로 보완합니다'라고 말해놓고 실제로는 web_search 도구를 호출하지
     않은 채 끝내버리는 경우가 있어, 그럴 땐 도구 호출을 강제해서 재시도한다."""
@@ -94,7 +109,7 @@ def generate_answer(context: str, question: str, max_attempts: int = 2) -> str:
             tool_choice={"type": "web_search_preview"} if force_search else "auto",
             input=f"<검색된_자료>\n{context}\n</검색된_자료>\n\n질문: {question}",
         )
-        answer = resp.output_text
+        answer = _final_message_text(resp)
         if not _looks_incomplete(answer):
             break
     return answer
