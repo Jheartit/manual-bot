@@ -28,9 +28,9 @@ ANSWER_MODEL = "gpt-4o-mini"  # gpt-4o는 기본 TPM 한도(30K)가 낮아 사�
 SYSTEM_PROMPT = """당신은 생명보험사 청약/배서 매뉴얼을 참고해 답변하는 업무 보조 봇입니다.
 
 규칙:
-1. 아래 제공되는 <검색된_자료> 안의 내용을 최우선 근거로 답변하세요.
+1. 아래 제공되는 <드라이브_자료> 안의 내용을 최우선 근거로 답변하세요.
 2. 답변 시 반드시 어느 생명사, 어느 문서(파일명)에서 나온 내용인지 출처를 명시하세요.
-3. <검색된_자료>에 질문에 대한 답이 없거나 부족하면, web_search 도구로 검색해 답변에 반영하고
+3. <드라이브_자료>에 질문에 대한 답이 없거나 부족하면, web_search 도구로 검색해 답변에 반영하고
    "자료 내에서 확인되지 않아 웹 검색으로 보완합니다"라는 문장만 답변 앞에 짧게 붙이세요.
    "찾아보겠습니다", "잠시만 기다려 주세요"처럼 지금부터 검색하겠다는 진행 상황 멘트는 절대 쓰지 마세요 —
    검색은 이미 끝난 상태로, 결과가 반영된 완성된 답변만 출력하세요.
@@ -96,7 +96,7 @@ def _final_message_text(resp) -> str:
     )
 
 
-def generate_answer(context: str, question: str, max_attempts: int = 2) -> str:
+def generate_answer(context: str, question: str, max_attempts: int = 3) -> str:
     """'웹 검색으로 보완합니다'라고 말해놓고 실제로는 web_search 도구를 호출하지
     않은 채 끝내버리는 경우가 있어, 그럴 땐 도구 호출을 강제해서 재시도한다."""
     answer = ""
@@ -107,7 +107,7 @@ def generate_answer(context: str, question: str, max_attempts: int = 2) -> str:
             instructions=SYSTEM_PROMPT,
             tools=[{"type": "web_search_preview"}],
             tool_choice={"type": "web_search_preview"} if force_search else "auto",
-            input=f"<검색된_자료>\n{context}\n</검색된_자료>\n\n질문: {question}",
+            input=f"<드라이브_자료>\n{context}\n</드라이브_자료>\n\n질문: {question}",
         )
         answer = _final_message_text(resp)
         if not _looks_incomplete(answer):
