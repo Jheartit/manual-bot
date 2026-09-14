@@ -44,10 +44,22 @@ class QueryRequest(BaseModel):
     top_k: int = 8
 
 
+MAX_CHUNKS_PER_FILE = 2  # 청크 수가 아주 많은 파일 하나가 검색 결과를 독점하지 못하게 제한
+
+
 def search_chunks(conn, question: str, company_filter: str | None, top_k: int):
+    """유사도 상위 후보를 top_k보다 넉넉히 가져온 뒤, 같은 파일에서 나온 청크가
+    MAX_CHUNKS_PER_FILE개를 넘지 않도록 걸러 top_k개를 채운다.
+    (예: 콜센터 스크립트처럼 청크가 수만 개인 파일 하나가 다양한 질문에 걸쳐
+    검색 결과를 전부 차지해버려, 정작 관련된 다른 회사 자료가 밀려나는 문제 방지)"""
     q_embedding = vo.embed([question], model="voyage-3", input_type="query").embeddings[0]
+    candidate_limit = max(top_k * 5, 30)
 
     with conn.cursor() as cur:
+        # HNSW 인덱스 기본 ef_search(40)는 데이터가 한쪽으로 쏠려 있으면(예: 청크 수가
+        # 유독 많은 파일 하나가 대부분을 차지) 진짜 최근접 벡터를 놓치는 경우가 있어
+        # recall을 높이기 위해 값을 올린다.
+        cur.execute("SET hnsw.ef_search = 200;")
         if company_filter:
             cur.execute(
                 """SELECT company, doc_type, file_name, drive_file_id, content
@@ -55,7 +67,7 @@ def search_chunks(conn, question: str, company_filter: str | None, top_k: int):
                    WHERE company = %s
                    ORDER BY embedding <=> %s::vector
                    LIMIT %s""",
-                (company_filter, q_embedding, top_k),
+                (company_filter, q_embedding, candidate_limit),
             )
         else:
             cur.execute(
@@ -63,9 +75,24 @@ def search_chunks(conn, question: str, company_filter: str | None, top_k: int):
                    FROM manual_chunks
                    ORDER BY embedding <=> %s::vector
                    LIMIT %s""",
-                (q_embedding, top_k),
+                (q_embedding, candidate_limit),
             )
-        return cur.fetchall()
+        candidates = cur.fetchall()
+
+    selected, leftover, per_file_count = [], [], {}
+    for row in candidates:
+        file_name = row[2]
+        if per_file_count.get(file_name, 0) < MAX_CHUNKS_PER_FILE:
+            selected.append(row)
+            per_file_count[file_name] = per_file_count.get(file_name, 0) + 1
+        else:
+            leftover.append(row)
+        if len(selected) >= top_k:
+            break
+
+    if len(selected) < top_k:
+        selected.extend(leftover[: top_k - len(selected)])
+    return selected
 
 
 def build_context(rows) -> str:

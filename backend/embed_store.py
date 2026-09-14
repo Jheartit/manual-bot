@@ -52,9 +52,12 @@ def init_db(conn):
                 embedding VECTOR(1024)
             );
         """)
+        # HNSW 사용: 데이터가 특정 파일 하나에 쏠리는 등 분포가 고르지 않을 때도
+        # ivfflat보다 근접 이웃 recall이 안정적이다 (rag_query.py에서 hnsw.ef_search로
+        # 추가 튜닝함).
         cur.execute("""
             CREATE INDEX IF NOT EXISTS manual_chunks_embedding_idx
-            ON manual_chunks USING ivfflat (embedding vector_cosine_ops);
+            ON manual_chunks USING hnsw (embedding vector_cosine_ops);
         """)
         # 증분 처리를 위해 파일별 마지막 처리 시점(modified_time)을 기록
         cur.execute("""
