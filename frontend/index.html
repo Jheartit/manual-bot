@@ -6,27 +6,59 @@
 <link rel="stylesheet" as="style" crossorigin
   href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css">
 <style>
+  /* ============================================================
+     DESIGN.md 토큰 매핑 (Apple-design-analysis, alpha)
+     colors / rounded / spacing 값은 문서 그대로. SF Pro는 Apple
+     플랫폼 밖에서 렌더링되지 않으므로, 문서의 "Note on Font
+     Substitutes" 지침대로 한글 대응 폰트(Pretendard)를 그 다음
+     순위로 붙였다.
+     ============================================================ */
   :root {
-    --bg: #FFFFFF;
-    --surface: #FFFFFF;
-    --sidebar-bg: #FAFAFA;
-    --text: #101828;
-    --text-soft: #344054;
-    --muted: #667085;
-    --border: #E4E7EC;
-    --accent: #2563EB;
-    --accent-soft: #EFF4FF;
-    --accent-strong: #1D4ED8;
-    --danger: #DC2626;
+    /* colors.* */
+    --color-primary: #0066cc;
+    --color-primary-focus: #0071e3;
+    --color-primary-on-dark: #2997ff;
+    --color-ink: #1d1d1f;
+    --color-body-muted: #cccccc;
+    --color-ink-muted-80: #333333;
+    --color-ink-muted-48: #7a7a7a;
+    --color-divider-soft: #f0f0f0;
+    --color-hairline: #e0e0e0;
+    --color-canvas: #ffffff;
+    --color-canvas-parchment: #f5f5f7;
+    --color-surface-pearl: #fafafc;
+    --color-on-primary: #ffffff;
+    --color-on-dark: #ffffff;
+
+    /* rounded.* */
+    --radius-xs: 5px;
+    --radius-sm: 8px;
+    --radius-md: 11px;
+    --radius-lg: 18px;
+    --radius-pill: 9999px;
+
+    /* spacing.* */
+    --space-xxs: 4px;
+    --space-xs: 8px;
+    --space-sm: 12px;
+    --space-md: 17px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+
+    /* typography.* font families */
+    --font-display: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
+      "Apple SD Gothic Neo", "Pretendard", sans-serif;
+    --font-text: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont,
+      "Apple SD Gothic Neo", "Pretendard", sans-serif;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0;
-    background: var(--bg);
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "SF Pro Text",
-      "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
-    color: var(--text);
+    /* Do's: 페이지 캔버스는 parchment, 카드 표면은 canvas 흰색으로 대비를 준다 */
+    background: var(--color-canvas-parchment);
+    font-family: var(--font-text);
+    color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
   }
   .app {
@@ -36,17 +68,17 @@
     height: calc(100vh - 48px);
     max-height: 800px;
     margin: 24px auto;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
+    background: var(--color-canvas);
+    /* Don't: 카드에 그림자 금지. 대신 1px hairline으로만 경계를 표시 (elevation "Soft hairline") */
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 24px rgba(16, 24, 40, 0.04);
   }
   /* ---- sidebar ---- */
   .sidebar {
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border);
-    padding: 24px 18px;
+    background: var(--color-canvas-parchment);
+    border-right: 1px solid var(--color-hairline);
+    padding: var(--space-lg) var(--space-md);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
@@ -54,165 +86,204 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 11px;
-    margin-bottom: 28px;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-xl);
   }
   .brand-mark {
+    /* button-icon-circular 그리드에 준한 원형/사각 마크. primary accent 사용 */
     width: 34px; height: 34px;
-    border-radius: 9px;
+    border-radius: var(--radius-sm);
     display: flex; align-items: center; justify-content: center;
-    background: var(--accent);
+    background: var(--color-primary);
+    font-family: var(--font-display);
     font-size: 14px;
-    font-weight: 700;
-    color: #fff;
+    font-weight: 600;
+    color: var(--color-on-primary);
     flex-shrink: 0;
   }
   .brand-title {
-    font-size: 14.5px;
-    font-weight: 700;
-    color: var(--text);
-    line-height: 1.3;
+    /* typography.caption-strong: 14px/600/1.29/-0.224px */
+    font-family: var(--font-text);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.29;
+    letter-spacing: -0.224px;
+    color: var(--color-ink);
   }
   .brand-sub {
+    /* typography.fine-print: 12px/400/1.0/-0.12px */
+    font-family: var(--font-text);
     font-size: 12px;
-    color: var(--muted);
-    margin-top: 1px;
+    line-height: 1.0;
+    letter-spacing: -0.12px;
+    color: var(--color-ink-muted-48);
+    margin-top: 3px;
   }
   .filter-label {
+    /* typography.nav-link: 12px/400/1.0/-0.12px */
+    font-family: var(--font-text);
     font-size: 12px;
-    font-weight: 600;
-    color: var(--muted);
-    margin-bottom: 10px;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.12px;
+    color: var(--color-ink-muted-48);
+    margin-bottom: var(--space-sm);
   }
   .company-list {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-bottom: 28px;
+    margin-bottom: var(--space-xl);
   }
   .company-item {
+    /* button-utility 타이포(14px/400/-0.224px) + compact utility 라운드(sm) */
     text-align: left;
     background: none;
     border: none;
-    border-radius: 8px;
-    padding: 8px 10px;
-    font-size: 13.5px;
-    font-family: inherit;
-    color: var(--text-soft);
+    border-radius: var(--radius-sm);
+    padding: var(--space-xs) var(--space-sm);
+    font-family: var(--font-text);
+    font-size: 14px;
+    line-height: 1.29;
+    letter-spacing: -0.224px;
+    color: var(--color-ink-muted-80);
     cursor: pointer;
+    transition: background-color 0.15s;
   }
-  .company-item:hover { background: #F0F1F3; }
+  .company-item:hover { background: var(--color-divider-soft); }
   .company-item.active {
-    color: var(--accent-strong);
-    background: var(--accent-soft);
+    color: var(--color-primary);
+    background: var(--color-surface-pearl);
     font-weight: 600;
   }
+  .company-item:active { transform: scale(0.97); }
   .sidebar-footer {
     margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    font-size: 11.5px;
-    color: var(--muted);
-    line-height: 1.6;
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-hairline);
+    font-family: var(--font-text);
+    font-size: 10px;
+    line-height: 1.3;
+    letter-spacing: -0.08px;
+    color: var(--color-ink-muted-48);
   }
 
   /* ---- main chat ---- */
-  .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--surface); }
+  .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--color-canvas); }
   .chat-header {
     position: relative;
-    padding: 20px 64px 16px 28px;
-    border-bottom: 1px solid var(--border);
+    padding: var(--space-lg) 64px var(--space-sm) var(--space-lg);
+    border-bottom: 1px solid var(--color-hairline);
     flex-shrink: 0;
   }
   .chat-header h1 {
-    font-size: 16.5px;
-    font-weight: 700;
-    color: var(--text);
+    /* typography.tagline: 21px/600/1.19/0.231px — sub-nav-frosted 카테고리명과 같은 역할 */
+    font-family: var(--font-display);
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.19;
+    letter-spacing: 0.231px;
+    color: var(--color-ink);
     margin: 0 0 4px;
-    letter-spacing: -0.01em;
   }
   .chat-header p {
-    font-size: 13px;
-    color: var(--muted);
+    /* typography.caption: 14px/400/1.43/-0.224px */
+    font-family: var(--font-text);
+    font-size: 14px;
+    line-height: 1.43;
+    letter-spacing: -0.224px;
+    color: var(--color-ink-muted-48);
     margin: 0;
   }
   .new-chat-btn {
+    /* component.button-dark-utility */
     position: absolute;
-    top: 16px;
-    right: 20px;
+    top: var(--space-lg);
+    right: var(--space-lg);
     display: flex;
     align-items: center;
     gap: 5px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: #fff;
-    color: var(--text-soft);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 7px 13px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--color-ink);
+    color: var(--color-on-dark);
+    font-family: var(--font-text);
+    font-size: 14px;
+    letter-spacing: -0.224px;
+    padding: var(--space-xs) 15px;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
   }
-  .new-chat-btn:hover { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent-soft); }
+  .new-chat-btn:hover { background: var(--color-ink-muted-80); }
+  .new-chat-btn:active { transform: scale(0.95); }
   .chat-scroll {
     flex: 1;
     min-height: 0;
-    padding: 22px 28px;
+    padding: var(--space-lg);
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: var(--space-lg);
     overflow-y: auto;
   }
 
   .msg-user {
+    /* 다크 타일 문법 재사용: ink 배경 + on-dark 텍스트 */
     align-self: flex-end;
     max-width: 70%;
-    background: var(--text);
-    color: #FFFFFF;
-    padding: 10px 14px;
-    font-size: 14px;
-    line-height: 1.55;
-    border-radius: 14px 14px 4px 14px;
+    background: var(--color-ink);
+    color: var(--color-on-dark);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-lg);
+    font-family: var(--font-text);
+    font-size: 17px;
+    line-height: 1.47;
+    letter-spacing: -0.374px;
   }
 
   .msg-bot { max-width: 82%; }
   .msg-bot-text {
-    font-size: 14px;
-    line-height: 1.7;
-    color: var(--text-soft);
+    /* typography.body: 17px/400/1.47/-0.374px — Do: body는 반드시 17px */
+    font-family: var(--font-text);
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.47;
+    letter-spacing: -0.374px;
+    color: var(--color-ink);
     white-space: pre-line;
   }
   .web-note {
-    font-size: 12px;
-    color: var(--accent-strong);
-    margin-top: 8px;
-    padding: 6px 10px;
-    background: var(--accent-soft);
-    border-radius: 8px;
+    /* typography.caption, parchment 표면 + primary 텍스트로 최소한의 강조만 부여 */
+    font-family: var(--font-text);
+    font-size: 14px;
+    line-height: 1.43;
+    letter-spacing: -0.224px;
+    color: var(--color-primary);
+    margin-top: var(--space-xs);
+    padding: 6px var(--space-sm);
+    background: var(--color-canvas-parchment);
+    border-radius: var(--radius-md);
     display: inline-block;
   }
   .sources {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 12px;
+    gap: var(--space-xxs);
+    margin-top: var(--space-sm);
   }
   .stamp {
-    border: 1px solid var(--border);
-    color: var(--muted);
-    background: #FAFAFA;
-    border-radius: 999px;
-    font-size: 11.5px;
-    padding: 4px 10px;
+    /* configurator-option-chip 문법(pill + canvas + hairline) 축소 적용 */
+    border: 1px solid var(--color-hairline);
+    color: var(--color-ink-muted-48);
+    background: var(--color-canvas);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-text);
+    font-size: 12px;
+    letter-spacing: -0.12px;
+    padding: 4px var(--space-sm);
     white-space: nowrap;
   }
 
   .typing { display: flex; gap: 4px; padding: 4px 0; }
   .typing span {
     width: 5px; height: 5px; border-radius: 50%;
-    background: var(--muted);
+    background: var(--color-ink-muted-48);
     animation: blink 1.1s infinite;
   }
   .typing span:nth-child(2) { animation-delay: 0.15s; }
@@ -221,36 +292,41 @@
 
   .composer {
     display: flex;
-    gap: 10px;
-    padding: 16px 28px 22px;
-    border-top: 1px solid var(--border);
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg) var(--space-lg);
+    border-top: 1px solid var(--color-hairline);
     flex-shrink: 0;
   }
   .composer input {
+    /* component.search-input */
     flex: 1;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: #fff;
-    padding: 10px 14px;
-    font-size: 14px;
-    color: var(--text);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-pill);
+    background: var(--color-canvas);
+    padding: var(--space-sm) 20px;
+    height: 44px;
+    font-family: var(--font-text);
+    font-size: 17px;
+    letter-spacing: -0.374px;
+    color: var(--color-ink);
     outline: none;
-    font-family: inherit;
   }
-  .composer input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .composer input:focus { outline: 2px solid var(--color-primary-focus); outline-offset: 1px; }
   .composer button {
+    /* component.button-primary */
     border: none;
-    border-radius: 10px;
-    background: var(--accent);
-    color: #FFFFFF;
-    padding: 0 20px;
-    font-size: 13.5px;
-    font-weight: 600;
-    font-family: inherit;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    padding: 11px 22px;
+    font-family: var(--font-text);
+    font-size: 17px;
+    letter-spacing: -0.374px;
     cursor: pointer;
   }
-  .composer button:hover { background: var(--accent-strong); }
-  .composer button:disabled { opacity: 0.6; cursor: default; }
+  .composer button:hover { background: var(--color-primary-focus); }
+  .composer button:active { transform: scale(0.95); }
+  .composer button:disabled { opacity: 0.5; cursor: default; transform: none; }
 </style>
 </head>
 <body>
