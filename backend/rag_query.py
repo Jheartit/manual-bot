@@ -50,7 +50,7 @@ def search_chunks(conn, question: str, company_filter: str | None, top_k: int):
     with conn.cursor() as cur:
         if company_filter:
             cur.execute(
-                """SELECT company, doc_type, file_name, content
+                """SELECT company, doc_type, file_name, drive_file_id, content
                    FROM manual_chunks
                    WHERE company = %s
                    ORDER BY embedding <=> %s::vector
@@ -59,7 +59,7 @@ def search_chunks(conn, question: str, company_filter: str | None, top_k: int):
             )
         else:
             cur.execute(
-                """SELECT company, doc_type, file_name, content
+                """SELECT company, doc_type, file_name, drive_file_id, content
                    FROM manual_chunks
                    ORDER BY embedding <=> %s::vector
                    LIMIT %s""",
@@ -70,7 +70,7 @@ def search_chunks(conn, question: str, company_filter: str | None, top_k: int):
 
 def build_context(rows) -> str:
     parts = []
-    for company, doc_type, file_name, content in rows:
+    for company, doc_type, file_name, drive_file_id, content in rows:
         parts.append(f"[{company} / {doc_type} / {file_name}]\n{content}")
     return "\n\n---\n\n".join(parts)
 
@@ -124,11 +124,20 @@ def query(req: QueryRequest):
     context = build_context(rows)
     answer = generate_answer(context, req.question)
 
-    sources = list({(c, d, f) for c, d, f, _ in rows})
+    sources = list({(c, d, f, fid) for c, d, f, fid, _ in rows})
 
     return {
         "answer": answer,
-        "sources": [{"company": c, "doc_type": d, "file_name": f} for c, d, f in sources],
+        "sources": [
+            {
+                "company": c,
+                "doc_type": d,
+                "file_name": f,
+                # 소스 태그 클릭 시 실제 파일로 이동할 수 있게 Drive 링크도 함께 내려줌
+                "drive_url": f"https://drive.google.com/file/d/{fid}/view",
+            }
+            for c, d, f, fid in sources
+        ],
     }
 
 
