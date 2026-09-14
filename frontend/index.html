@@ -314,9 +314,8 @@
   const input = document.getElementById('msgInput');
   const sendBtn = document.getElementById('sendBtn');
 
-  // 백엔드 API 주소. rag_query.py를 로컬에서 uvicorn으로 띄웠다면 기본값 그대로 두면 됨.
-  // 배포 후에는 실제 서버 주소로 바꿔야 함 (예: https://manual-bot.yourcompany.com)
-  const API_BASE_URL = 'http://localhost:8000';
+  // 백엔드 API 주소 (Railway 배포 주소)
+  const API_BASE_URL = 'https://manual-bot-production-69ac.up.railway.app';
 
   let currentCompanyFilter = null; // '전체'면 null, 특정 생명사면 해당 이름
 
