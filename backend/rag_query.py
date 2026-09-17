@@ -205,15 +205,15 @@ def _looks_like_file_request(question: str) -> bool:
     return any(kw in question for kw in FILE_REQUEST_KEYWORDS)
 
 
-def _company_mentioned(company: str, question: str) -> bool:
+def _company_mentioned_exactly(company: str, question_nospace: str) -> bool:
+    return company in question_nospace
+
+
+def _company_mentioned_by_suffix(company: str, question_nospace: str) -> bool:
     """정식 회사명 전체가 없어도(예: "BNP카디바생명"을 "카디바생명"이라고만 말하는 경우)
     "BNP" 같은 앞쪽 브랜드 접두어가 생략된 경우까지 인식한다. 뒤에서부터 시작하는
     부분 문자열이 4글자 이상 남을 때만 인정해 지나치게 짧아 오탐하는 것(예: "생명"만
-    일치)은 막는다. 사용자가 "카디바 생명"처럼 띄어써도 인식하도록 공백을 제거하고
-    비교한다."""
-    question_nospace = question.replace(" ", "")
-    if company in question_nospace:
-        return True
+    일치)은 막는다."""
     for start in range(1, len(company) - 3):
         suffix = company[start:]
         if len(suffix) >= 4 and suffix in question_nospace:
@@ -227,12 +227,30 @@ def _detect_company_in_question(conn, question: str) -> str | None:
     같은 회사의 다른 문서 여러 개가 상위권을 채워버려서, 실제로 꽤 가까운(예: 17위)
     문서가 다양성 필터에 밀려 아예 안 나오는 경우가 있었다. 질문에 회사명이 정확히
     하나만 등장하면 그 회사로 필터링해 후보 풀 자체를 좁힌다 (두 회사 이상 언급되면
-    비교 질문일 수 있으니 필터링하지 않음)."""
+    비교 질문일 수 있으니 필터링하지 않음).
+
+    사용자가 "카디바 생명"처럼 띄어써도 인식하도록 공백을 제거하고 비교한다.
+
+    정확히 일치하는 회사명이 있으면(예: "DB생명") 접두어 생략 매칭은 아예 시도하지
+    않는다 — "KDB생명"의 접두어 생략형인 "DB생명"이 실제로 존재하는 별개 회사라서,
+    두 매칭 방식을 동시에 돌리면 "DB생명 자료 알려줘"처럼 명확한 질문도 KDB생명과
+    혼동돼(둘 다 매칭) 필터링이 아예 풀려버리는 문제가 있었다. 반대로 "KDB생명
+    자료 알려줘"처럼 질문에 더 긴 회사명이 그대로 등장하면, 그 안에 짧은 회사명이
+    문자열로 포함돼 있어도(예: "DB생명") 더 길게 일치하는 쪽을 우선한다."""
     with conn.cursor() as cur:
         cur.execute("SELECT DISTINCT company FROM manual_chunks")
         companies = [r[0] for r in cur.fetchall()]
-    matched = [c for c in companies if _company_mentioned(c, question)]
-    return matched[0] if len(matched) == 1 else None
+
+    question_nospace = question.replace(" ", "")
+    exact = [c for c in companies if _company_mentioned_exactly(c, question_nospace)]
+    if exact:
+        # 매칭된 회사명 중 다른 매칭된 회사명에 완전히 포함되는 것(예: "DB생명"이
+        # "KDB생명"에 포함)은 걸러내고, 그렇게 포함되지 않는 "가장 구체적인" 매칭만 남긴다.
+        maximal = [c for c in exact if not any(c != other and c in other for other in exact)]
+        return maximal[0] if len(maximal) == 1 else None
+
+    suffix_matched = [c for c in companies if _company_mentioned_by_suffix(c, question_nospace)]
+    return suffix_matched[0] if len(suffix_matched) == 1 else None
 
 
 @app.post("/query")
