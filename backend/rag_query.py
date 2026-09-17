@@ -40,6 +40,23 @@ SYSTEM_PROMPT = """당신은 생명보험사 청약/배서 매뉴얼을 참고�
    쓰지 마세요. 그런 경우엔 "자료 및 웹 검색에서 관련 정보를 찾지 못했습니다. 정확한 정보는 해당
    생명사 고객센터나 담당자를 통해 확인해주세요."라고만 답하세요."""
 
+# 질문에서 특정 생명사가 이미 감지되어 web_search 도구 자체를 주지 않는 경우 쓰는 프롬프트.
+# 위 SYSTEM_PROMPT의 규칙 3/6은 web_search 사용을 전제로 하는데, 도구가 없는데도 모델이
+# "웹 검색으로 보완합니다"라는 문구를 습관적으로 붙이는 경우가 있어(실제로는 검색을 하지
+# 않았으므로 사용자를 오도함) 해당 문구 없이 자료 기반으로만 답하도록 규칙을 교체한다.
+SYSTEM_PROMPT_NO_SEARCH = """당신은 생명보험사 청약/배서 매뉴얼을 참고해 답변하는 업무 보조 봇입니다.
+
+규칙:
+1. 아래 제공되는 <드라이브_자료> 안의 내용을 최우선 근거로 답변하세요. 어떤 문서들이 있는지,
+   문서 안에 어떤 내용이 있는지 물어보는 질문도 <드라이브_자료>에 나온 파일명과 내용만으로
+   충분히 답변할 수 있으니, 자료가 있다면 반드시 그 내용으로 답하세요.
+2. 답변 시 반드시 어느 생명사, 어느 문서(파일명)에서 나온 내용인지 출처를 명시하세요.
+3. <드라이브_자료>에 질문에 대한 답이 전혀 없을 때만 "자료 내에서 관련 정보를 찾지 못했습니다.
+   정확한 정보는 해당 생명사 고객센터나 담당자를 통해 확인해주세요."라고 답하세요. 검색을
+   시도했다는 말은 쓰지 마세요 (이 모드에서는 웹 검색을 사용하지 않습니다).
+4. 청약/배서 조건은 실무에 직접 영향을 주는 정보이므로, 답변 마지막에 "최종 확인은 원본 매뉴얼 또는 해당 생명사 담당자를 통해 진행해주세요."를 덧붙이세요.
+5. 추측이나 확인되지 않은 정보를 자료 없이 단정적으로 말하지 마세요."""
+
 
 class QueryRequest(BaseModel):
     question: str
@@ -106,6 +123,14 @@ def _looks_incomplete(answer: str) -> bool:
     return "웹 검색" in answer and len(answer) < 250
 
 
+def _looks_like_needless_refusal(answer: str, context: str) -> bool:
+    """<드라이브_자료>에 실제로 내용이 들어있는데도(회사가 특정돼 검색이 잘 됐는데도)
+    모델이 "요약해줘"류 질문에 가끔 이유 없이 "자료에서 찾지 못했다"고 답하는 경우가
+    있다(같은 입력으로 재요청해도 매번 다른 결과가 나오는 순수한 샘플링 변동성). 자료가
+    실제로 비어있지 않다면 이런 거절은 잘못된 것으로 보고 재시도한다."""
+    return "찾지 못했습니다" in answer and len(context) > 200
+
+
 def _final_message_text(resp) -> str:
     """도구를 쓰는 turn에서는 모델이 도구 호출 전에 미리 짧은 메시지를 하나 만들고,
     도구 호출 후 최종 메시지를 또 만드는 경우가 있다. resp.output_text는 이 둘을
@@ -121,7 +146,7 @@ def _final_message_text(resp) -> str:
     )
 
 
-def generate_answer(context: str, question: str, max_attempts: int = 3) -> str:
+def generate_answer(context: str, question: str, allow_web_search: bool, max_attempts: int = 3) -> str:
     """'웹 검색으로 보완합니다'라고 말해놓고 실제로는 web_search 도구를 호출하지
     않은 채 끝내버리는 경우가 있어 재시도한다.
 
@@ -130,7 +155,28 @@ def generate_answer(context: str, question: str, max_attempts: int = 3) -> str:
     강제로 검색을 시키면 도구가 질문과 전혀 무관한 내용(예: 과일파리 퇴치법,
     목감기 치료법)을 가져와 그걸 그대로 답변에 반영해버리는 심각한 문제가 있었다.
     강제하지 않고 "auto"로만 재시도해, 모델이 검색해도 의미가 없다고 판단하면
-    억지로 검색하지 않고 정직하게 "자료에 없다"고 답할 수 있게 한다."""
+    억지로 검색하지 않고 정직하게 "자료에 없다"고 답할 수 있게 한다.
+
+    allow_web_search=False (질문에서 특정 생명사가 명확히 감지된 경우)일 땐 아예
+    도구를 주지 않는다. "카디바 생명 회사에 관한 자료는 어떤 게 있어?"처럼
+    <드라이브_자료>에 이미 그 회사 문서가 들어있는데도, 모델이 가끔 "충분하지
+    않다"고 판단해 web_search를 호출했다가 회사 자료명 같은 건 웹에 없으니
+    무관한 결과만 나오고, 결국 규칙 6에 따라 멀쩡한 자료를 두고도 "찾지 못했다"고
+    답해버리는 문제가 있었다. 회사가 특정된 이상 그 회사 자료만으로 답하는 게
+    맞고, 정말 자료에 없으면 모델이 정직하게 그렇게 말하면 된다."""
+    if not allow_web_search:
+        answer = ""
+        for _ in range(max_attempts):
+            resp = client.responses.create(
+                model=ANSWER_MODEL,
+                instructions=SYSTEM_PROMPT_NO_SEARCH,
+                input=f"<드라이브_자료>\n{context}\n</드라이브_자료>\n\n질문: {question}",
+            )
+            answer = _final_message_text(resp)
+            if not _looks_like_needless_refusal(answer, context):
+                break
+        return answer
+
     answer = ""
     for _ in range(max_attempts):
         resp = client.responses.create(
@@ -197,7 +243,7 @@ def query(req: QueryRequest):
     conn.close()
 
     context = build_context(rows)
-    answer = generate_answer(context, req.question)
+    answer = generate_answer(context, req.question, allow_web_search=effective_filter is None)
 
     sources = list({(c, d, f, fid) for c, d, f, fid, _ in rows})
 
