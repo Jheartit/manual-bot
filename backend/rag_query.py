@@ -163,12 +163,14 @@ def _company_mentioned(company: str, question: str) -> bool:
     """정식 회사명 전체가 없어도(예: "BNP카디바생명"을 "카디바생명"이라고만 말하는 경우)
     "BNP" 같은 앞쪽 브랜드 접두어가 생략된 경우까지 인식한다. 뒤에서부터 시작하는
     부분 문자열이 4글자 이상 남을 때만 인정해 지나치게 짧아 오탐하는 것(예: "생명"만
-    일치)은 막는다."""
-    if company in question:
+    일치)은 막는다. 사용자가 "카디바 생명"처럼 띄어써도 인식하도록 공백을 제거하고
+    비교한다."""
+    question_nospace = question.replace(" ", "")
+    if company in question_nospace:
         return True
     for start in range(1, len(company) - 3):
         suffix = company[start:]
-        if len(suffix) >= 4 and suffix in question:
+        if len(suffix) >= 4 and suffix in question_nospace:
             return True
     return False
 
