@@ -221,22 +221,28 @@ def _company_mentioned_by_suffix(company: str, question_nospace: str) -> bool:
     return False
 
 
-def _detect_company_in_question(conn, question: str) -> str | None:
-    """사이드바에서 '전체'를 선택한 채로도, 질문에 특정 생명사 이름이 명시돼 있으면
-    그 회사로 좁혀서 검색한다. top_k(8)는 고정인데 '전체' 검색은 후보가 1만 건대라
-    같은 회사의 다른 문서 여러 개가 상위권을 채워버려서, 실제로 꽤 가까운(예: 17위)
-    문서가 다양성 필터에 밀려 아예 안 나오는 경우가 있었다. 질문에 회사명이 정확히
-    하나만 등장하면 그 회사로 필터링해 후보 풀 자체를 좁힌다 (두 회사 이상 언급되면
-    비교 질문일 수 있으니 필터링하지 않음).
+def _detect_companies_in_question(conn, question: str) -> list[str]:
+    """질문에 언급된 생명사 목록을 반환한다.
+
+    - 빈 리스트: 회사가 아예 언급되지 않았거나(예: "고지의무가 뭐야"), 접두어 생략
+      매칭이 여러 회사에 애매하게 걸려 하나로 특정할 수 없는 경우. 이땐 전체 자료에서
+      필터 없이 검색한다.
+    - 회사 1개: 그 회사로 좁혀서 검색한다. top_k(8)는 고정인데 '전체' 검색은 후보가
+      1만 건대라 같은 회사의 다른 문서 여러 개가 상위권을 채워버려서, 실제로 꽤
+      가까운(예: 17위) 문서가 다양성 필터에 밀려 아예 안 나오는 경우가 있었다.
+    - 회사 2개 이상(예: "한화생명이랑 삼성생명 차이"): 비교 질문으로 보고, 호출부에서
+      회사별로 나눠 검색해 균형을 맞춘다. 필터 없이 그냥 전체 검색을 하면, 회사마다
+      보유한 문서 수가 크게 달라 문서가 많은 쪽이 상위 15개를 통째로 차지해버리고
+      다른 회사는 아예 하나도 안 나오는 문제가 있었다.
 
     사용자가 "카디바 생명"처럼 띄어써도 인식하도록 공백을 제거하고 비교한다.
 
     정확히 일치하는 회사명이 있으면(예: "DB생명") 접두어 생략 매칭은 아예 시도하지
     않는다 — "KDB생명"의 접두어 생략형인 "DB생명"이 실제로 존재하는 별개 회사라서,
     두 매칭 방식을 동시에 돌리면 "DB생명 자료 알려줘"처럼 명확한 질문도 KDB생명과
-    혼동돼(둘 다 매칭) 필터링이 아예 풀려버리는 문제가 있었다. 반대로 "KDB생명
+    혼동돼(둘 다 매칭) 필터링이 아예 풀려버리는 문제가 있었다. 마찬가지로 "KDB생명
     자료 알려줘"처럼 질문에 더 긴 회사명이 그대로 등장하면, 그 안에 짧은 회사명이
-    문자열로 포함돼 있어도(예: "DB생명") 더 길게 일치하는 쪽을 우선한다."""
+    문자열로 포함돼 있어도(예: "DB생명") 더 길게 일치하는 쪽만 남긴다."""
     with conn.cursor() as cur:
         cur.execute("SELECT DISTINCT company FROM manual_chunks")
         companies = [r[0] for r in cur.fetchall()]
@@ -246,22 +252,38 @@ def _detect_company_in_question(conn, question: str) -> str | None:
     if exact:
         # 매칭된 회사명 중 다른 매칭된 회사명에 완전히 포함되는 것(예: "DB생명"이
         # "KDB생명"에 포함)은 걸러내고, 그렇게 포함되지 않는 "가장 구체적인" 매칭만 남긴다.
-        maximal = [c for c in exact if not any(c != other and c in other for other in exact)]
-        return maximal[0] if len(maximal) == 1 else None
+        return [c for c in exact if not any(c != other and c in other for other in exact)]
 
     suffix_matched = [c for c in companies if _company_mentioned_by_suffix(c, question_nospace)]
-    return suffix_matched[0] if len(suffix_matched) == 1 else None
+    return suffix_matched if len(suffix_matched) == 1 else []
 
 
 @app.post("/query")
 def query(req: QueryRequest):
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    effective_filter = req.company_filter or _detect_company_in_question(conn, req.question)
-    rows = search_chunks(conn, req.question, effective_filter, req.top_k)
+
+    if req.company_filter:
+        companies = [req.company_filter]
+    else:
+        companies = _detect_companies_in_question(conn, req.question)
+
+    if len(companies) >= 2:
+        # 비교 질문: 회사마다 따로 검색해 결과를 합친다 (그냥 필터 없이 검색하면
+        # 문서가 많은 회사가 상위 결과를 독점해 다른 회사가 아예 안 나올 수 있다).
+        per_company_k = max(5, req.top_k // len(companies))
+        rows = []
+        for c in companies:
+            rows.extend(search_chunks(conn, req.question, c, per_company_k))
+        allow_web_search = False
+    else:
+        effective_filter = companies[0] if companies else None
+        rows = search_chunks(conn, req.question, effective_filter, req.top_k)
+        allow_web_search = effective_filter is None
+
     conn.close()
 
     context = build_context(rows)
-    answer = generate_answer(context, req.question, allow_web_search=effective_filter is None)
+    answer = generate_answer(context, req.question, allow_web_search=allow_web_search)
 
     sources = list({(c, d, f, fid) for c, d, f, fid, _ in rows})
 
